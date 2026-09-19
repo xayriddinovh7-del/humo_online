@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "609734281684",
+    "project_id": "device-streaming-3706235e",
+    "storage_bucket": "device-streaming-3706235e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:609734281684:android:e8a09baf8a2afd6adbee41",
+        "android_client_info": {
+          "package_name": "com.example.humo_online"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBLxBRMBkDkbuir0MT9UJz8pRoDrQuIDBc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
