@@ -87,3 +87,21 @@ export const refreshToken = async (req: Request, res: Response) => {
     return sendError(res, 'TOKEN_INVALID', 'Token yaroqsiz', 401);
   }
 };
+
+export const getMe = async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return sendError(res, 'UNAUTHORIZED', 'Token berilmagan', 401);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, fullName: true, email: true, role: true, avatar: true, createdAt: true },
+    });
+    if (!user) return sendError(res, 'USER_NOT_FOUND', 'Foydalanuvchi topilmadi', 404);
+
+    return sendSuccess(res, { user });
+  } catch (err) {
+    return sendError(res, 'SERVER_ERROR', 'Server xatoligi', 500);
+  }
+};
+

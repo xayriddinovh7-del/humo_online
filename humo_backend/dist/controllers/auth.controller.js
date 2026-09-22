@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.refreshToken = exports.login = exports.register = void 0;
+exports.getMe = exports.refreshToken = exports.login = exports.register = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const zod_1 = require("zod");
 const prisma_1 = require("../utils/prisma");
@@ -84,3 +84,21 @@ const refreshToken = async (req, res) => {
     }
 };
 exports.refreshToken = refreshToken;
+const getMe = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId)
+            return (0, response_1.sendError)(res, 'UNAUTHORIZED', 'Token berilmagan', 401);
+        const user = await prisma_1.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, fullName: true, email: true, role: true, avatar: true, createdAt: true },
+        });
+        if (!user)
+            return (0, response_1.sendError)(res, 'USER_NOT_FOUND', 'Foydalanuvchi topilmadi', 404);
+        return (0, response_1.sendSuccess)(res, { user });
+    }
+    catch (err) {
+        return (0, response_1.sendError)(res, 'SERVER_ERROR', 'Server xatoligi', 500);
+    }
+};
+exports.getMe = getMe;

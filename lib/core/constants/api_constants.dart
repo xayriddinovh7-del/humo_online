@@ -2,9 +2,11 @@
 abstract final class ApiConstants {
   // ─── Base URL ───────────────────────────────────────────────────────────────
   /// Backend URL — Railway deploy dan keyin o'zgartiring
+  /// Android emulator uchun: http://10.0.2.2:3000/api/v1
+  /// iOS simulator / real device / web uchun: http://127.0.0.1:3000/api/v1
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:3000',
+    defaultValue: 'http://10.0.2.2:3000/api/v1',
   );
 
   // ─── Timeouts ───────────────────────────────────────────────────────────────
@@ -19,6 +21,7 @@ abstract final class ApiConstants {
   static const String refreshToken = '/auth/refresh';
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
+  static const String getMe = '/auth/me';
 
   // ─── Courses Endpoints ───────────────────────────────────────────────────────
   static const String courses = '/courses';

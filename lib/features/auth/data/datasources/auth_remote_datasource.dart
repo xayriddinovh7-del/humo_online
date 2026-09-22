@@ -1,69 +1,54 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/network/dio_client.dart';
 import '../models/user_model.dart';
 
-/// Auth uchun remote data source (Firebase orqali)
+/// Auth uchun remote data source (Express + JWT backend orqali)
 class AuthRemoteDataSource {
-  final FirebaseAuth _firebaseAuth;
-  final FirebaseFirestore _firestore;
+  final Dio _dio;
 
-  AuthRemoteDataSource({FirebaseAuth? firebaseAuth, FirebaseFirestore? firestore})
-      : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance;
+  AuthRemoteDataSource({Dio? dio})
+      : _dio = dio ?? DioClient.instance.dio;
 
+  /// Login — POST /api/v1/auth/login
+  /// Backend javob: { success, data: { user, accessToken, refreshToken }, message }
   Future<({UserModel user, String accessToken, String refreshToken})> login({
     required String email,
     required String password,
   }) async {
     try {
-      final userCredential = await _firebaseAuth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
+      final response = await _dio.post(
+        ApiConstants.login,
+        data: {'email': email, 'password': password},
       );
-
-      final firebaseUser = userCredential.user;
-      if (firebaseUser == null) {
-        throw const ServerException(message: 'Foydalanuvchi topilmadi');
-      }
-
-      final token = await firebaseUser.getIdToken() ?? '';
-      
-      // Firestore'dan foydalanuvchi ma'lumotlarini olish
-      final userDoc = await _firestore.collection('users').doc(firebaseUser.uid).get();
-      
-      UserModel userModel;
-      if (userDoc.exists) {
-        userModel = UserModel.fromJson(userDoc.data()!);
-        // ID ni har ehtimolga qarshi to'g'rilab qo'yamiz
-        if (userModel.id.isEmpty) {
-          userModel = userModel.copyWith(id: firebaseUser.uid);
-        }
-      } else {
-        // Agar Firestore da ma'lumot topilmasa, default yaratamiz
-        userModel = UserModel(
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName ?? '',
-          email: firebaseUser.email ?? email,
-          role: 'STUDENT',
-        );
-      }
-
+      final body = response.data as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>;
       return (
-        user: userModel,
-        accessToken: token,
-        refreshToken: token, // Firebase o'zi token yangilashni boshqaradi
+        user: UserModel.fromJson(data['user'] as Map<String, dynamic>),
+        accessToken: data['accessToken'] as String,
+        refreshToken: data['refreshToken'] as String,
       );
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      final errBody = e.response?.data as Map<String, dynamic>?;
+      final message = (errBody?['error'] as Map<String, dynamic>?)?['message']
+          as String? ??
+          'Login xatoligi';
+
+      if (statusCode == 401) {
         throw const UnauthorizedException(message: 'Email yoki parol xato');
       }
-      throw ServerException(message: e.message ?? 'Login xatoligi');
+      throw ServerException(message: message, statusCode: statusCode);
     } catch (e) {
+      if (e is AppException) rethrow;
       throw ServerException(message: 'Login xatoligi: $e');
     }
   }
 
+  /// Register — POST /api/v1/auth/register
+  /// Backend: { fullName, email, password }
+  /// Javob: { success, data: { user, accessToken, refreshToken }, message }
   Future<({UserModel user, String accessToken, String refreshToken})> register({
     required String name,
     required String email,
@@ -75,81 +60,84 @@ class AuthRemoteDataSource {
     }
 
     try {
-      final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
+      final response = await _dio.post(
+        ApiConstants.register,
+        data: {
+          'fullName': name,
+          'email': email,
+          'password': password,
+        },
       );
-
-      final firebaseUser = userCredential.user;
-      if (firebaseUser == null) {
-        throw const ServerException(message: 'Ro\'yxatdan o\'tishda xatolik');
-      }
-
-      // Ismni yangilash
-      await firebaseUser.updateDisplayName(name);
-
-      final userModel = UserModel(
-        id: firebaseUser.uid,
-        name: name,
-        email: email,
-        role: 'STUDENT',
-        createdAt: DateTime.now(),
-      );
-
-      // Firestore ga ma'lumotni saqlash
-      await _firestore.collection('users').doc(firebaseUser.uid).set(userModel.toJson());
-
-      final token = await firebaseUser.getIdToken() ?? '';
-
+      final body = response.data as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>;
       return (
-        user: userModel,
-        accessToken: token,
-        refreshToken: token,
+        user: UserModel.fromJson(data['user'] as Map<String, dynamic>),
+        accessToken: data['accessToken'] as String,
+        refreshToken: data['refreshToken'] as String,
       );
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'email-already-in-use') {
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      final errBody = e.response?.data as Map<String, dynamic>?;
+      final errObj = errBody?['error'] as Map<String, dynamic>?;
+      final message = errObj?['message'] as String? ?? 'Ro\'yxatdan o\'tishda xatolik';
+      final code = errObj?['code'] as String?;
+
+      if (code == 'EMAIL_EXISTS') {
         throw const ValidationException(message: 'Bu email allaqachon ro\'yxatdan o\'tgan');
       }
-      throw ServerException(message: e.message ?? 'Ro\'yxatdan o\'tishda xatolik');
+      if (code == 'VALIDATION_ERROR') {
+        throw ValidationException(message: message);
+      }
+      throw ServerException(message: message, statusCode: statusCode);
     } catch (e) {
+      if (e is AppException) rethrow;
       throw ServerException(message: 'Ro\'yxatdan o\'tishda xatolik: $e');
     }
   }
 
+  /// Logout — faqat local token tozalash (backend logout endpointi yo'q)
   Future<void> logout() async {
-    await _firebaseAuth.signOut();
+    // Backend stateless JWT — logout faqat client tomonida token o'chirish
   }
 
+  /// Parolni tiklash — backend hali implement qilinmagan
   Future<void> forgotPassword({required String email}) async {
     try {
-      await _firebaseAuth.sendPasswordResetEmail(email: email);
-    } on FirebaseAuthException catch (e) {
-      throw ServerException(message: e.message ?? 'Parolni tiklash xati yuborilmadi');
+      await _dio.post(
+        ApiConstants.forgotPassword,
+        data: {'email': email},
+      );
+    } on DioException catch (e) {
+      final errBody = e.response?.data as Map<String, dynamic>?;
+      final message = (errBody?['error'] as Map<String, dynamic>?)?['message']
+          as String? ??
+          'Parolni tiklash xati yuborilmadi';
+      throw ServerException(message: message, statusCode: e.response?.statusCode);
     } catch (e) {
+      if (e is AppException) rethrow;
       throw ServerException(message: 'Xatolik yuz berdi: $e');
     }
   }
 
+  /// Joriy foydalanuvchini olish — POST /api/v1/auth/refresh bilan token yangilanib
+  /// keyin GET /api/v1/auth/me orqali profil olinadi.
+  /// Agar /me endpoint yo'q bo'lsa, refresh token orqali userId decode qilinadi.
   Future<UserModel> getMe() async {
-    final firebaseUser = _firebaseAuth.currentUser;
-    if (firebaseUser == null) {
-      throw const UnauthorizedException(message: 'Foydalanuvchi tizimga kirmagan');
-    }
-
     try {
-      final userDoc = await _firestore.collection('users').doc(firebaseUser.uid).get();
-      
-      if (userDoc.exists) {
-        return UserModel.fromJson(userDoc.data()!);
-      } else {
-        return UserModel(
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName ?? '',
-          email: firebaseUser.email ?? '',
-          role: 'STUDENT',
-        );
+      final response = await _dio.get(ApiConstants.getMe);
+      final body = response.data as Map<String, dynamic>;
+      return UserModel.fromJson(body['data'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw const UnauthorizedException(message: 'Foydalanuvchi tizimga kirmagan');
       }
+      final errBody = e.response?.data as Map<String, dynamic>?;
+      final message = (errBody?['error'] as Map<String, dynamic>?)?['message']
+          as String? ??
+          'Profilni yuklashda xatolik';
+      throw ServerException(message: message);
     } catch (e) {
+      if (e is AppException) rethrow;
       throw ServerException(message: 'Profilni yuklashda xatolik: $e');
     }
   }

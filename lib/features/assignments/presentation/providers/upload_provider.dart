@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/storage/secure_storage.dart';
 import '../../data/datasources/assignment_remote_datasource.dart';
 import '../../domain/entities/assignment_entity.dart';
+
 
 // ─── States ───────────────────────────────────────────────────────────────────
 
@@ -138,15 +138,24 @@ class UploadNotifier extends Notifier<UploadState> {
     state = state.copyWith(selectedFiles: newList);
   }
 
-  // ─── Serverga (Firebase) yuklash ──────────────────────────────────────────
-  // Web va native uchun: readAsBytes() ishlatiladi — ikkalasida ham ishlaydi.
+  // ─── Serverga (Firebase Storage + backend API) yuklash ──────────────────
+  // Fayllar Firebase Storage ga yuklanadi, URL lar backend ga yuboriladi.
 
   Future<void> uploadFiles(String assignmentId) async {
     if (state.selectedFiles.isEmpty) return;
 
     state = state.copyWith(status: UploadStatus.uploading, progress: 0.0);
 
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    // JWT bilan saqlangan userId ni olish
+    final uid = await SecureStorageService.instance.getUserId();
+    if (uid == null || uid.isEmpty) {
+      state = state.copyWith(
+        status: UploadStatus.error,
+        errorMessage: 'Tizimga kiring',
+      );
+      return;
+    }
+
     final List<String> downloadUrls = [];
 
     try {
@@ -172,13 +181,12 @@ class UploadNotifier extends Notifier<UploadState> {
         downloadUrls.add(url);
       }
 
-      await FirebaseFirestore.instance.collection('submissions').add({
-        'assignmentId': assignmentId,
-        'userId': uid,
-        'fileUrls': downloadUrls,
-        'submittedAt': FieldValue.serverTimestamp(),
-        'status': 'submitted',
-      });
+      // Firebase Storage URL larini backend ga yuborish
+      final ds = ref.read(assignmentRemoteDataSourceProvider);
+      await ds.submitAssignment(
+        assignmentId: assignmentId,
+        fileUrls: downloadUrls,
+      );
 
       state = state.copyWith(
         status: UploadStatus.success,

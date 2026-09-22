@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/courses/presentation/pages/courses_page.dart';
 import '../../features/courses/presentation/pages/course_detail_page.dart';
 import '../../features/video/presentation/pages/video_player_page.dart';
@@ -12,108 +13,132 @@ import '../../features/profile/presentation/pages/profile_page.dart';
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-final appRouter = GoRouter(
-  navigatorKey: _rootNavigatorKey,
-  initialLocation: '/courses',
-  redirect: (context, state) async {
-    // Firebase Auth orqali foydalanuvchi tizimga kirganligini tekshirish
-    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
-    final isAuthRoute = state.uri.path == '/login' || state.uri.path == '/register';
+/// AuthState o'zgarganda GoRouter ni xabardor qiluvchi listenable
+class _AuthStateListenable extends ChangeNotifier {
+  _AuthStateListenable(this._ref) {
+    _ref.listen(authNotifierProvider, (_, __) {
+      notifyListeners();
+    });
+  }
+  final Ref _ref;
+}
 
-    if (!isLoggedIn && !isAuthRoute) {
-      return '/login';
-    }
+/// Router provider — authState ga reaktiv
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final listenable = _AuthStateListenable(ref);
 
-    if (isLoggedIn && isAuthRoute) {
-      return '/courses';
-    }
+  return GoRouter(
+    navigatorKey: _rootNavigatorKey,
+    initialLocation: '/courses',
+    refreshListenable: listenable,
+    redirect: (context, state) {
+      final authState = ref.read(authNotifierProvider);
+      final isAuthRoute =
+          state.uri.path == '/login' || state.uri.path == '/register';
 
-    return null;
-  },
-  routes: [
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const LoginPage(),
-    ),
-    GoRoute(
-      path: '/register',
-      builder: (context, state) => const RegisterPage(),
-    ),
-    
-    // Bottom Navigation Bar bilan ishlaydigan asosiy routelar
-    ShellRoute(
-      navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) {
-        return Scaffold(
-          body: child,
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _calculateSelectedIndex(state.uri.path),
-            onTap: (index) => _onItemTapped(index, context),
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.school_outlined),
-                activeIcon: Icon(Icons.school_rounded),
-                label: 'Kurslar',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline_rounded),
-                activeIcon: Icon(Icons.person_rounded),
-                label: 'Profil',
-              ),
-            ],
-          ),
-        );
-      },
-      routes: [
-        GoRoute(
-          path: '/courses',
-          builder: (context, state) => const CoursesPage(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              parentNavigatorKey: _rootNavigatorKey,
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return CourseDetailPage(courseId: id);
-              },
-            ),
-          ],
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => const ProfilePage(),
-        ),
-      ],
-    ),
+      // Hali tekshirilmoqda — kutamiz (loading splash screen ko'rinadi)
+      if (authState is AuthInitial || authState is AuthLoading) {
+        return null;
+      }
 
-    // Video va Vazifalar sahifalari (bottom nav barsiz)
-    GoRoute(
-      path: '/lessons/:id',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return Scaffold(
-          body: Column(
-            children: [
-              Expanded(
-                flex: 4,
-                child: VideoPlayerPage(
-                  lessonId: id,
-                  videoUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
-                  title: 'Dars nomi',
+      final isAuthenticated = authState is AuthAuthenticated;
+
+      if (!isAuthenticated && !isAuthRoute) {
+        return '/login';
+      }
+
+      if (isAuthenticated && isAuthRoute) {
+        return '/courses';
+      }
+
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterPage(),
+      ),
+
+      // Bottom Navigation Bar bilan ishlaydigan asosiy routelar
+      ShellRoute(
+        navigatorKey: _shellNavigatorKey,
+        builder: (context, state, child) {
+          return Scaffold(
+            body: child,
+            bottomNavigationBar: BottomNavigationBar(
+              currentIndex: _calculateSelectedIndex(state.uri.path),
+              onTap: (index) => _onItemTapped(index, context),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.school_outlined),
+                  activeIcon: Icon(Icons.school_rounded),
+                  label: 'Kurslar',
                 ),
-              ),
-              Expanded(
-                flex: 6,
-                child: AssignmentPage(lessonId: id),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline_rounded),
+                  activeIcon: Icon(Icons.person_rounded),
+                  label: 'Profil',
+                ),
+              ],
+            ),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: '/courses',
+            builder: (context, state) => const CoursesPage(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                parentNavigatorKey: _rootNavigatorKey,
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return CourseDetailPage(courseId: id);
+                },
               ),
             ],
           ),
-        );
-      },
-    ),
-  ],
-);
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfilePage(),
+          ),
+        ],
+      ),
+
+      // Video va Vazifalar sahifalari (bottom nav barsiz)
+      GoRoute(
+        path: '/lessons/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return Scaffold(
+            body: Column(
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: VideoPlayerPage(
+                    lessonId: id,
+                    videoUrl:
+                        'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
+                    title: 'Dars nomi',
+                  ),
+                ),
+                Expanded(
+                  flex: 6,
+                  child: AssignmentPage(lessonId: id),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ],
+  );
+});
 
 int _calculateSelectedIndex(String location) {
   if (location.startsWith('/courses')) return 0;

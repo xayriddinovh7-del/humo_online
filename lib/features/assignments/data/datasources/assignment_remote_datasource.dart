@@ -41,7 +41,7 @@ class AssignmentRemoteDataSource {
     }
   }
 
-  Future<SubmissionModel> submitAssignment({
+  Future<SubmissionModel> submitAssignmentWithFiles({
     required String assignmentId,
     required List<File> files,
     required CancelToken cancelToken,
@@ -80,4 +80,20 @@ class AssignmentRemoteDataSource {
           ServerException(message: e.message ?? 'Yuklashda xatolik');
     }
   }
+
+  /// Firebase Storage dan olingan URL larni backend ga yuborish
+  Future<void> submitAssignment({
+    required String assignmentId,
+    required List<String> fileUrls,
+  }) async {
+    try {
+      await _dio.post(
+        ApiConstants.submitAssignment(assignmentId),
+        data: {'fileUrls': fileUrls},
+      );
+    } on DioException catch (e) {
+      throw e.error ?? ServerException(message: e.message ?? 'Yuklashda xatolik');
+    }
+  }
 }
+

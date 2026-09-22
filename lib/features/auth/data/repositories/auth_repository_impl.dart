@@ -5,7 +5,7 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 
-/// AuthRepository implementatsiyasi
+/// AuthRepository implementatsiyasi — backend Express+JWT bilan ishlaydi
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
   final SecureStorageService _secureStorage;
@@ -95,7 +95,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String token,
     required String newPassword,
   }) async {
-    // TODO: implement
+    // TODO: implement reset password endpoint
   }
 
   @override
@@ -104,6 +104,10 @@ class AuthRepositoryImpl implements AuthRepository {
       final isLoggedIn = await _secureStorage.isLoggedIn();
       if (!isLoggedIn) return null;
       return await _remoteDataSource.getMe();
+    } on UnauthorizedException {
+      // Token eskirgan — local ma'lumotlarni tozalab, null qaytaramiz
+      await _secureStorage.clearAll();
+      return null;
     } catch (_) {
       return null;
     }
