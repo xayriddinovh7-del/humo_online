@@ -3,50 +3,42 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMe = exports.refreshToken = exports.login = exports.register = void 0;
+exports.changePassword = exports.updateProfile = exports.getMe = exports.refreshToken = exports.login = exports.register = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const zod_1 = require("zod");
 const prisma_1 = require("../utils/prisma");
 const jwt_1 = require("../utils/jwt");
 const response_1 = require("../utils/response");
-const email_1 = require("../utils/email");
 const registerSchema = zod_1.z.object({
-    fullName: zod_1.z.string().min(2),
-    email: zod_1.z.string().email(),
-    password: zod_1.z.string().min(6),
+    fullName: zod_1.z.string().min(2, 'Ism kamida 2 ta belgi'),
+    email: zod_1.z.string().min(3, 'Login kiritilishi shart'),
+    password: zod_1.z.string().min(6, 'Parol kamida 6 ta belgi'),
+    role: zod_1.z.enum(['STUDENT', 'TEACHER']).default('STUDENT'),
 });
 const loginSchema = zod_1.z.object({
-    email: zod_1.z.string().email(),
+    email: zod_1.z.string().min(3),
     password: zod_1.z.string(),
 });
+// ─── Register ──────────────────────────────────────────────────────────────
 const register = async (req, res) => {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
         return (0, response_1.sendError)(res, 'VALIDATION_ERROR', parsed.error.errors[0].message);
     }
-    const { fullName, email, password } = parsed.data;
+    const { fullName, email, password, role } = parsed.data;
     const exists = await prisma_1.prisma.user.findUnique({ where: { email } });
     if (exists)
-        return (0, response_1.sendError)(res, 'EMAIL_EXISTS', 'Bu email allaqachon ro\'yxatdan o\'tgan');
+        return (0, response_1.sendError)(res, 'EMAIL_EXISTS', 'Bu login allaqachon ro\'yxatdan o\'tgan');
     const passwordHash = await bcrypt_1.default.hash(password, 12);
     const user = await prisma_1.prisma.user.create({
-        data: { fullName, email, passwordHash },
-        select: { id: true, fullName: true, email: true, role: true },
+        data: { fullName, email, passwordHash, role },
+        select: { id: true, fullName: true, email: true, role: true, avatar: true, createdAt: true },
     });
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await prisma_1.prisma.otpCode.create({
-        data: {
-            userId: user.id,
-            code,
-            type: 'EMAIL_VERIFY',
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-        },
-    });
-    await (0, email_1.sendOtpEmail)(email, code);
     const tokens = (0, jwt_1.generateTokens)(user.id, user.role);
     return (0, response_1.sendSuccess)(res, { user, ...tokens }, 'Ro\'yxatdan o\'tildi', 201);
 };
 exports.register = register;
+// ─── Login ─────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -55,18 +47,26 @@ const login = async (req, res) => {
     const { email, password } = parsed.data;
     const user = await prisma_1.prisma.user.findUnique({ where: { email } });
     if (!user || !user.passwordHash) {
-        return (0, response_1.sendError)(res, 'INVALID_CREDENTIALS', 'Email yoki parol noto\'g\'ri', 401);
+        return (0, response_1.sendError)(res, 'INVALID_CREDENTIALS', 'Login yoki parol noto\'g\'ri', 401);
     }
     const valid = await bcrypt_1.default.compare(password, user.passwordHash);
     if (!valid)
-        return (0, response_1.sendError)(res, 'INVALID_CREDENTIALS', 'Email yoki parol noto\'g\'ri', 401);
+        return (0, response_1.sendError)(res, 'INVALID_CREDENTIALS', 'Login yoki parol noto\'g\'ri', 401);
     const tokens = (0, jwt_1.generateTokens)(user.id, user.role);
     return (0, response_1.sendSuccess)(res, {
-        user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role },
+        user: {
+            id: user.id,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            avatar: user.avatar,
+            createdAt: user.createdAt,
+        },
         ...tokens,
     });
 };
 exports.login = login;
+// ─── Refresh Token ──────────────────────────────────────────────────────────
 const refreshToken = async (req, res) => {
     const { refreshToken } = req.body;
     if (!refreshToken)
@@ -84,6 +84,7 @@ const refreshToken = async (req, res) => {
     }
 };
 exports.refreshToken = refreshToken;
+// ─── Get Me ─────────────────────────────────────────────────────────────────
 const getMe = async (req, res) => {
     try {
         const userId = req.user?.userId;
@@ -91,7 +92,14 @@ const getMe = async (req, res) => {
             return (0, response_1.sendError)(res, 'UNAUTHORIZED', 'Token berilmagan', 401);
         const user = await prisma_1.prisma.user.findUnique({
             where: { id: userId },
-            select: { id: true, fullName: true, email: true, role: true, avatar: true, createdAt: true },
+            select: {
+                id: true,
+                fullName: true,
+                email: true,
+                role: true,
+                avatar: true,
+                createdAt: true,
+            },
         });
         if (!user)
             return (0, response_1.sendError)(res, 'USER_NOT_FOUND', 'Foydalanuvchi topilmadi', 404);
@@ -102,3 +110,49 @@ const getMe = async (req, res) => {
     }
 };
 exports.getMe = getMe;
+// ─── Update Profile ─────────────────────────────────────────────────────────
+const updateProfile = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const { fullName, avatar } = req.body;
+        const user = await prisma_1.prisma.user.update({
+            where: { id: userId },
+            data: {
+                ...(fullName && { fullName }),
+                ...(avatar && { avatar }),
+            },
+            select: { id: true, fullName: true, email: true, role: true, avatar: true, createdAt: true },
+        });
+        return (0, response_1.sendSuccess)(res, { user }, 'Profil yangilandi');
+    }
+    catch (err) {
+        return (0, response_1.sendError)(res, 'SERVER_ERROR', 'Profilni yangilashda xatolik', 500);
+    }
+};
+exports.updateProfile = updateProfile;
+// ─── Change Password ─────────────────────────────────────────────────────────
+const changePassword = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            return (0, response_1.sendError)(res, 'VALIDATION_ERROR', 'Barcha maydonlar to\'ldirilishi shart');
+        }
+        if (newPassword.length < 6) {
+            return (0, response_1.sendError)(res, 'VALIDATION_ERROR', 'Yangi parol kamida 6 ta belgi bo\'lsin');
+        }
+        const user = await prisma_1.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            return (0, response_1.sendError)(res, 'NOT_FOUND', 'Foydalanuvchi topilmadi', 404);
+        const valid = await bcrypt_1.default.compare(currentPassword, user.passwordHash);
+        if (!valid)
+            return (0, response_1.sendError)(res, 'WRONG_PASSWORD', 'Joriy parol noto\'g\'ri', 401);
+        const passwordHash = await bcrypt_1.default.hash(newPassword, 12);
+        await prisma_1.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+        return (0, response_1.sendSuccess)(res, {}, 'Parol muvaffaqiyatli o\'zgartirildi');
+    }
+    catch (err) {
+        return (0, response_1.sendError)(res, 'SERVER_ERROR', 'Parolni o\'zgartirishda xatolik', 500);
+    }
+};
+exports.changePassword = changePassword;

@@ -37,7 +37,7 @@ class AuthRemoteDataSource {
           'Login xatoligi';
 
       if (statusCode == 401) {
-        throw const UnauthorizedException(message: 'Email yoki parol xato');
+        throw const UnauthorizedException(message: 'Login yoki parol xato');
       }
       throw ServerException(message: message, statusCode: statusCode);
     } catch (e) {
@@ -83,7 +83,7 @@ class AuthRemoteDataSource {
       final code = errObj?['code'] as String?;
 
       if (code == 'EMAIL_EXISTS') {
-        throw const ValidationException(message: 'Bu email allaqachon ro\'yxatdan o\'tgan');
+        throw const ValidationException(message: 'Bu login allaqachon ro\'yxatdan o\'tgan');
       }
       if (code == 'VALIDATION_ERROR') {
         throw ValidationException(message: message);

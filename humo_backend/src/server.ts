@@ -8,6 +8,7 @@ import courseRoutes from './routes/course.routes';
 import lessonRoutes from './routes/lesson.routes';
 import assignmentRoutes from './routes/assignment.routes';
 import submissionRoutes from './routes/submission.routes';
+import profileRoutes from './routes/profile.routes';
 
 dotenv.config();
 
@@ -22,6 +23,8 @@ app.use('/api/v1/courses', courseRoutes);
 app.use('/api/v1/lessons', lessonRoutes);
 app.use('/api/v1/assignments', assignmentRoutes);
 app.use('/api/v1/submissions', submissionRoutes);
+app.use('/api/v1/profile', profileRoutes);
+app.use('/api/v1/notifications', profileRoutes); // Aliased notifications to profile controller
 
 const PORT = process.env.PORT || 3000;
 

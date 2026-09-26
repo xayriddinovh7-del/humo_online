@@ -12,6 +12,7 @@ const course_routes_1 = __importDefault(require("./routes/course.routes"));
 const lesson_routes_1 = __importDefault(require("./routes/lesson.routes"));
 const assignment_routes_1 = __importDefault(require("./routes/assignment.routes"));
 const submission_routes_1 = __importDefault(require("./routes/submission.routes"));
+const profile_routes_1 = __importDefault(require("./routes/profile.routes"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use((0, helmet_1.default)());
@@ -22,6 +23,8 @@ app.use('/api/v1/courses', course_routes_1.default);
 app.use('/api/v1/lessons', lesson_routes_1.default);
 app.use('/api/v1/assignments', assignment_routes_1.default);
 app.use('/api/v1/submissions', submission_routes_1.default);
+app.use('/api/v1/profile', profile_routes_1.default);
+app.use('/api/v1/notifications', profile_routes_1.default); // Aliased notifications to profile controller
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

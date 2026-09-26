@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 
-enum AppButtonType { primary, secondary, outlined, ghost }
+enum AppButtonType { primary, secondary, outlined, ghost, glass }
 
 enum AppButtonSize { small, medium, large }
 
@@ -163,6 +163,58 @@ class AppButton extends StatelessWidget {
           ),
           child: buildContent(
             enabled ? colorScheme.primary : AppColors.textHintLight,
+          ),
+        );
+        break;
+      
+      case AppButtonType.glass:
+        button = Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withOpacity(0.2),
+                Colors.white.withOpacity(0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.3),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ElevatedButton(
+            onPressed: enabled ? onPressed : null,
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.all(Colors.transparent),
+              foregroundColor: WidgetStateProperty.all(Colors.white),
+              shadowColor: WidgetStateProperty.all(Colors.transparent),
+              elevation: WidgetStateProperty.all(0),
+              padding: WidgetStateProperty.all(padding),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              overlayColor: WidgetStateProperty.resolveWith(
+                (states) {
+                  if (states.contains(WidgetState.pressed)) {
+                    return Colors.pinkAccent.withOpacity(0.3); // Pushti shaffof chaqnash
+                  }
+                  if (states.contains(WidgetState.hovered)) {
+                    return Colors.pinkAccent.withOpacity(0.1);
+                  }
+                  return null;
+                },
+              ),
+            ),
+            child: buildContent(Colors.white),
           ),
         );
         break;

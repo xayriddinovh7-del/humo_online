@@ -2,6 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const assignment_controller_1 = require("../controllers/assignment.controller");
+const submission_controller_1 = require("../controllers/submission.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 router.get('/:id', assignment_controller_1.getAssignment);
+router.get('/lesson/:lessonId', assignment_controller_1.getAssignmentsByLesson);
+router.post('/', auth_middleware_1.requireAuth, assignment_controller_1.createAssignment);
+router.post('/:assignmentId/submit', auth_middleware_1.requireAuth, submission_controller_1.submitAssignment);
 exports.default = router;

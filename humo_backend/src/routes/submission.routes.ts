@@ -1,7 +1,11 @@
 import { Router } from 'express';
-import { submitAssignment } from '../controllers/submission.controller';
+import { getSubmissionById, getMySubmission, getPresignedUrl } from '../controllers/submission.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
-router.post('/submit', requireAuth, submitAssignment);
+
+router.get('/:id', requireAuth, getSubmissionById);
+router.get('/my/:assignmentId', requireAuth, getMySubmission);
+router.post('/upload/presigned-url', requireAuth, getPresignedUrl);
+
 export default router;

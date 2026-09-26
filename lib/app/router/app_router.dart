@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/pages/role_select_page.dart';
+import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/courses/presentation/pages/courses_page.dart';
 import '../../features/courses/presentation/pages/course_detail_page.dart';
@@ -29,41 +31,69 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/courses',
+    initialLocation: '/',
     refreshListenable: listenable,
     redirect: (context, state) {
       final authState = ref.read(authNotifierProvider);
-      final isAuthRoute =
-          state.uri.path == '/login' || state.uri.path == '/register';
 
-      // Hali tekshirilmoqda — kutamiz (loading splash screen ko'rinadi)
+      // Auth tekshirilayotgan bo'lsa kutamiz
       if (authState is AuthInitial || authState is AuthLoading) {
         return null;
       }
 
       final isAuthenticated = authState is AuthAuthenticated;
+      final path = state.uri.path;
 
-      if (!isAuthenticated && !isAuthRoute) {
-        return '/login';
+      // Auth sahifalari (kirish talab qilinmaydi)
+      final isPublicRoute = path == '/' ||
+          path == '/role-select' ||
+          path == '/login' ||
+          path == '/register';
+
+      if (!isAuthenticated && !isPublicRoute) {
+        return '/';
       }
 
-      if (isAuthenticated && isAuthRoute) {
+      if (isAuthenticated && isPublicRoute) {
         return '/courses';
       }
 
       return null;
     },
     routes: [
+      // ─── Splash sahifasi ──────────────────────────────────────────
       GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginPage(),
-      ),
-      GoRoute(
-        path: '/register',
-        builder: (context, state) => const RegisterPage(),
+        path: '/',
+        builder: (context, state) => const SplashPage(),
       ),
 
-      // Bottom Navigation Bar bilan ishlaydigan asosiy routelar
+      // ─── Rol tanlash sahifasi ─────────────────────────────────────
+      GoRoute(
+        path: '/role-select',
+        builder: (context, state) => const RoleSelectPage(),
+      ),
+
+      // ─── Login — role query param bilan ──────────────────────────
+      // /login?role=student  yoki  /login?role=teacher
+      GoRoute(
+        path: '/login',
+        builder: (context, state) {
+          final role = state.uri.queryParameters['role'] ?? 'student';
+          return LoginPage(role: role);
+        },
+      ),
+
+      // ─── Register — role query param bilan ───────────────────────
+      // /register?role=student  yoki  /register?role=teacher
+      GoRoute(
+        path: '/register',
+        builder: (context, state) {
+          final role = state.uri.queryParameters['role'] ?? 'student';
+          return RegisterPage(role: role);
+        },
+      ),
+
+      // ─── Asosiy sahifalar (Bottom Nav bilan) ─────────────────────
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) {
@@ -109,7 +139,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // Video va Vazifalar sahifalari (bottom nav barsiz)
+      // ─── Video va Vazifalar (bottom nav barsiz) ───────────────────
       GoRoute(
         path: '/lessons/:id',
         parentNavigatorKey: _rootNavigatorKey,
