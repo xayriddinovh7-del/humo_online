@@ -162,11 +162,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 width: 90,
                                 height: 90,
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: gradientColors,
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(28),
                                   boxShadow: [
                                     BoxShadow(
@@ -176,7 +172,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     ),
                                   ],
                                 ),
-                                child: Icon(roleIcon, color: Colors.white, size: 44),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(28),
+                                  child: Image.asset(
+                                    'assets/images/logo.jpg',
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 24),

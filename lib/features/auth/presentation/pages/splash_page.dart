@@ -270,8 +270,8 @@ class _WaterDropLogo extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withOpacity(0.35),
-                Colors.white.withOpacity(0.05),
+                Colors.white,
+                Colors.white,
               ],
             ),
             borderRadius: BorderRadius.circular(40),
@@ -285,16 +285,11 @@ class _WaterDropLogo extends StatelessWidget {
             ],
           ),
           child: Center(
-            child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFFFF2DAF), Color(0xFF7B10E6)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ).createShader(bounds),
-              child: const Icon(
-                Icons.school_rounded,
-                size: 70,
-                color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Image.asset(
+                'assets/images/logo.jpg',
+                fit: BoxFit.contain,
               ),
             ),
           ),
